@@ -1,0 +1,25 @@
+{
+  "name": "product-order-rest-api",
+  "version": "1.0.0",
+  "description": "This project will serve as a tool to learn and practice RESTfull concepts",
+  "main": "index.js",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "mariadb": "^2.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MiguelTamayo/product-order-REST-API.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MiguelTamayo/product-order-REST-API/issues"
+  },
+  "homepage": "https://github.com/MiguelTamayo/product-order-REST-API#readme"
+}

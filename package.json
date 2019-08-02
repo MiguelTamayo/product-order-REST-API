@@ -4,13 +4,13 @@
   "description": "This project will serve as a tool to learn and practice RESTfull concepts",
   "main": "index.js",
   "dependencies": {
-    "body-parser": "^1.19.0",
     "express": "^4.17.1",
     "mariadb": "^2.1.0"
   },
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./src/app.js"
   },
   "repository": {
     "type": "git",

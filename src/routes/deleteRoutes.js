@@ -3,7 +3,7 @@ const router = express.Router();
 const database = require('../databaseConnection/database.js');
 
 router.delete('/products', (req, res) => {
-    database.deleteAllProducts(req)
+    database.deleteAllProducts()
         .then(data => {
             res.status(200);
             res.send(data);
@@ -15,19 +15,24 @@ router.delete('/products', (req, res) => {
 });
 
 router.delete('/products/:id', (req, res) => {
-    database.deleteProduct(req)
+    database.deleteProduct(req.params.id)
         .then(data => {
             res.status(200);
-            res.send(data);
+            res.json(data);
         })
         .catch(error =>{
-            res.status(404);
-            res.send(error);
+            if(error instanceof Error){
+                res.status(500);
+                res.json({error:"server error"});
+            }else {
+                res.status(404);
+                res.json(error);
+            }
         });
 });
 
 router.delete('/orders', (req, res) => {
-    database.deleteAllOrders(req)
+    database.deleteAllOrders()
         .then(data => {
             res.status(200);
             res.send(data);
@@ -39,7 +44,7 @@ router.delete('/orders', (req, res) => {
 });
 
 router.delete('/orders/:id', (req, res) => {
-    database.deleteOrder(req)
+    database.deleteOrder(req.params.id)
         .then(data => {
             res.status(200);
             res.send(data);

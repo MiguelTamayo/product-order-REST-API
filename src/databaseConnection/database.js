@@ -362,4 +362,63 @@ Database.getProduct = function(id){
     });
 };
 
+Database.deleteAllProducts = function(){
+    return new Promise((resolve, reject) => {
+        pool.query("DELETE FROM `products`")
+            .then(()=>{
+                resolve({result:"all products deleted"});
+            })
+            .catch(()=>{
+                reject({error:"could not delete all products"});
+            });
+    });
+};
+
+Database.deleteProduct = function(id){
+    return new Promise((resolve, reject) => {
+        id = Number(id);
+        if(typeof id !== "number"){
+            return reject({error:"id was not a number"})
+        }else if(!(Number.isInteger(id))){
+            return reject({error:"id was not an integer"})
+        }
+        //use prepared statement
+        let sql = "DELETE FROM `products` WHERE `id` = ?;";
+        pool.query(sql,[id])
+            .then(result => {
+                return resolve({result:"product deleted"});
+            })
+            .catch(error => {
+                console.log(error);
+                return reject({error: "could not delete product"});
+            });
+    });
+};
+
+Database.deleteAllOrders = function(){
+    return new Promise((resolve, reject) => {
+        pool.query("DELETE FROM `orders`")
+            .then(()=>{
+                resolve({result:"all orders deleted"});
+            })
+            .catch(()=>{
+                reject({error:"could not delete all orders"});
+            });
+    });
+};
+
+Database.deleteOrder = function(id){
+    return new Promise((resolve, reject) => {
+        //use prepared statement
+        let sql = "DELETE FROM `orders` WHERE `order_id` = ?;";
+        pool.query(sql,[id])
+            .then(result => {
+                return resolve({result:"order deleted"});
+            })
+            .catch(error => {
+                console.log(error);
+                return reject({error: "could not delete order"});
+            });
+    });
+};
 module.exports = Database;

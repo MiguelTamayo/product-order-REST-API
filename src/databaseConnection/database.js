@@ -76,7 +76,6 @@ function productOrderIntegrity(product, index){
                 .then(conn => {
                     conn.query(sql,[product.id])
                         .then(result=>{
-                            console.log(result[0]);
                             if(result[0] === undefined){
                                 console.log("product id does not exist");
                                 reject({error:"product id does not exist @ index: "+index});
@@ -98,7 +97,6 @@ function productOrderIntegrity(product, index){
         }
     });
 }
-
 
 Database.createProduct = function(request){
     return new Promise((resolve, reject) => {
@@ -163,7 +161,6 @@ Database.createProduct = function(request){
     });
 };
 
-
 Database.createOrder = function(request){
     return new Promise((resolve, reject) => {
 
@@ -171,11 +168,15 @@ Database.createOrder = function(request){
 
         //check if order contains products property
         if(order.products === undefined){
-            return {error:"order data sent did not contain the property of 'products'"};
+            return reject({error:"order data sent did not contain the property of 'products'"});
         }
         //check if products property is an array
         if(!(order.products instanceof Array)){
-            return {error:"order 'products' property was not an array"};
+            return reject({error:"order 'products' property was not an array"});
+        }
+        //check if products array is not empty
+        if(order.products.length === 0){
+            return reject({error:"order 'products' property was empty"});
         }
         //check if all products in order have the correct properties
         //check if all products properties are of the correct type and value
@@ -188,66 +189,175 @@ Database.createOrder = function(request){
 
         Promise.all(productPromises)
             .then(()=>{
-                //TODO generate unique order id
-                const orderID = 0;
+                let orderID = undefined;
                 const date = Date.now();
-
-                //start database action
-                pool.getConnection()
-                    .then(conn=>{
-                        conn.beginTransaction()
-                            .then(()=>{
-                                let queryPromises = [];
-                                for(let i = order.products.length-1; i >= 0; i--){
-                                    let product = order.products[i];
-                                    //use prepared statement
-                                    let sql = "INSERT INTO `orders` (`order_id`, `product_id`, `quantity`, `date_placed`) VALUES (?, ?, ?, ?);";
-                                    queryPromises.push(conn.query(sql, [orderID, product.id, product.quantity, date]));
-                                }
-                                Promise.all(queryPromises)
+                pool.query("SELECT UUID();")
+                    .then(result => {
+                        orderID = result[0]['UUID()'];
+                        pool.getConnection()
+                            .then(conn=>{
+                                conn.beginTransaction()
                                     .then(()=>{
-                                        conn.commit()
+                                        let queryPromises = [];
+                                        for(let i = order.products.length-1; i >= 0; i--){
+                                            let product = order.products[i];
+                                            //use prepared statement
+                                            let sql = "INSERT INTO `orders` (`order_id`, `product_id`, `quantity`, `date_placed`) VALUES (?, ?, ?, ?);";
+                                            queryPromises.push(conn.query(sql, [orderID, product.id, product.quantity, date]));
+                                        }
+                                        Promise.all(queryPromises)
                                             .then(()=>{
-                                                console.log("transaction committed");
-                                                return resolve({result: "order created! new order id is: "+orderID});
+                                                conn.commit()
+                                                    .then(()=>{
+                                                        console.log("transaction committed");
+                                                        return resolve({result: "order created! new order id is: "+orderID});
+                                                    })
+                                                    .catch((err)=>{
+                                                        console.log("error with committing transaction");
+                                                        console.log(err);
+                                                        return reject({error:"could not create order"});
+                                                    })
+                                                    .finally(()=>{
+                                                        console.log("connection released");
+                                                        conn.release();
+                                                    });
                                             })
-                                            .catch((err)=>{
-                                                console.log("error with committing transaction");
-                                                console.log(err);
-                                                return reject({error:"could not create order"});
-                                            })
-                                            .finally(()=>{
-                                                console.log("connection released");
-                                                conn.release();
+                                            .catch(()=>{
+                                                conn.rollback()
+                                                    .then(()=>{
+                                                        console.log("rolled-back transaction");
+                                                    })
+                                                    .catch(()=>{
+                                                        console.log("error in roll back");
+                                                    })
+                                                    .finally(()=>{
+                                                        console.log("connection released");
+                                                        conn.release();
+                                                        return reject({error:"could not create order"});
+                                                    });
                                             });
                                     })
                                     .catch(()=>{
-                                        conn.rollback()
-                                            .then(()=>{
-                                                console.log("rolled-back transaction");
-                                            })
-                                            .catch(()=>{
-                                                console.log("error in roll back");
-                                            })
-                                            .finally(()=>{
-                                                console.log("connection released");
-                                                conn.release();
-                                                return reject({error:"could not create order"});
-                                            });
-                                    });
+                                        console.log("error with transaction");
+                                        return reject({error:"could not create order"});
+                                    })
                             })
-                            .catch(()=>{
-                                console.log("error with transaction");
+                            .catch(err=>{
+                                console.log("error with connection");
                                 return reject({error:"could not create order"});
                             })
                     })
-                    .catch(err=>{
-                        console.log("error with connection");
-                        return reject({error:"could not create order"});
-                    })
+                    .catch(error => {
+                        reject(new Error("error with db"))
+                    });
             })
             .catch(error=>{
                 return reject(error);
+            });
+    });
+};
+
+Database.getAllOrders = function(){
+    return new Promise((resolve, reject) => {
+        pool.getConnection()
+            .then(conn => {
+                const sql = "SELECT `order_id`, `product_id`, `quantity`, `date_placed` FROM `orders`;";
+                conn.query(sql)
+                    .then(results =>{
+                        resolve(results);
+                    })
+                    .catch(()=>{
+                        console.log("error with query");
+                        reject(new Error("query to db failed"))
+                    })
+                    .finally(()=>{
+                        conn.release();
+                    })
+            })
+            .catch(error => {
+               console.log("could not get connection to database");
+               reject(new Error("connection to db failed"));
+            });
+    });
+};
+
+Database.getOrder = function(id){
+    return new Promise((resolve, reject) => {
+        pool.getConnection()
+            .then(conn => {
+                //use prepared statement
+                const sql = "SELECT `order_id`, `product_id`, `quantity`, `date_placed` FROM `orders` WHERE `order_id` = ?;";
+                conn.query(sql, [id])
+                    .then(results =>{
+                        resolve(results);
+                    })
+                    .catch(()=>{
+                        console.log("error with query");
+                        reject(new Error("query to db failed"))
+                    })
+                    .finally(()=>{
+                        conn.release();
+                    })
+            })
+            .catch(error => {
+                console.log("could not get connection to database");
+                reject(new Error("connection to db failed"));
+            });
+    });
+};
+
+Database.getAllProducts = function(){
+    return new Promise((resolve, reject) => {
+        pool.getConnection()
+            .then(conn => {
+                const sql = "SELECT * FROM `products`;";
+                conn.query(sql)
+                    .then(results =>{
+                        resolve(results);
+                    })
+                    .catch(()=>{
+                        console.log("error with query");
+                        reject(new Error("query to db failed"))
+                    })
+                    .finally(()=>{
+                        conn.release();
+                    })
+            })
+            .catch(error => {
+                console.log("could not get connection to database");
+                reject(new Error("connection to db failed"));
+            });
+    });
+};
+
+Database.getProduct = function(id){
+    return new Promise((resolve, reject) => {
+        id = Number(id);
+        if(typeof id !== "number"){
+            return reject({error:"id was not a number"})
+        }else if(!(Number.isInteger(id))){
+            return reject({error:"id was not an integer"})
+        }
+
+        pool.getConnection()
+            .then(conn => {
+                //use prepared statement
+                const sql = "SELECT * FROM `products` WHERE `id` = ?;";
+                conn.query(sql, [id])
+                    .then(results =>{
+                        resolve(results);
+                    })
+                    .catch(()=>{
+                        console.log("error with query");
+                        reject(new Error("query to db failed"))
+                    })
+                    .finally(()=>{
+                        conn.release();
+                    })
+            })
+            .catch(error => {
+                console.log("could not get connection to database");
+                reject(new Error("connection to db failed"));
             });
     });
 };
